@@ -16,3 +16,7 @@ schedule is not a guarantee of five-minute update completion.
 
 Automatic publication is controlled by the AUTO_PUBLISH repository variable.
 It is disabled until deployment and gameplay checks are complete.
+
+A weekly public-only activity commit prevents GitHub's automatic 60-day
+disablement of scheduled workflows in an otherwise inactive public repository.
+This contains no private tool, client or credential data.

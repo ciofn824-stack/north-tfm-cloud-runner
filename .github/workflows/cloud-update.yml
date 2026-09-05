@@ -15,7 +15,7 @@ on:
           - production
         default: staging
   schedule:
-    - cron: '2-57/5 * * * *'
+    - cron: '1-56/5 * * * *'
 
 permissions:
   contents: read
