@@ -7,6 +7,13 @@ on:
         description: Publish the verified candidate
         type: boolean
         default: false
+      target:
+        description: Destination (staging does not change the live client)
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
   schedule:
     - cron: '2-57/5 * * * *'
 
@@ -77,8 +84,15 @@ jobs:
         if: inputs.publish == true || (github.event_name == 'schedule' && vars.AUTO_PUBLISH == 'true')
         shell: pwsh
         env:
-          NORTH_TFM_ADMIN_SECRET: ${{ secrets.NORTH_TFM_ADMIN_SECRET }}
+          NORTH_TFM_ADMIN_SECRET: ${{ inputs.target == 'staging' && secrets.STAGING_ADMIN_SECRET || secrets.NORTH_TFM_ADMIN_SECRET }}
+          PUBLICATION_TARGET: ${{ inputs.target }}
         run: |
+          if ($env:PUBLICATION_TARGET -eq 'staging') {
+            $config = Get-Content -Raw ./bundle/config/pipeline.json | ConvertFrom-Json
+            $config.workerBase = 'https://north-tfm-integration.ciofn824-30b.workers.dev'
+            $config.publication.allowInitialPublish = $true
+            $config | ConvertTo-Json -Depth 10 | Set-Content ./bundle/config/pipeline.json
+          }
           try {
             & ./bundle/scripts/Publish-NorthTFMValidated.ps1 *> ./bundle/publication-private.log
           } catch {
