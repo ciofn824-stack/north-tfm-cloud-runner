@@ -84,8 +84,8 @@ jobs:
         if: inputs.publish == true || (github.event_name == 'schedule' && vars.AUTO_PUBLISH == 'true')
         shell: pwsh
         env:
-          NORTH_TFM_ADMIN_SECRET: ${{ inputs.target == 'staging' && secrets.STAGING_ADMIN_SECRET || secrets.NORTH_TFM_ADMIN_SECRET }}
-          PUBLICATION_TARGET: ${{ inputs.target }}
+          NORTH_TFM_ADMIN_SECRET: ${{ github.event_name == 'schedule' && secrets.NORTH_TFM_ADMIN_SECRET || (inputs.target == 'staging' && secrets.STAGING_ADMIN_SECRET || secrets.NORTH_TFM_ADMIN_SECRET) }}
+          PUBLICATION_TARGET: ${{ github.event_name == 'schedule' && 'production' || inputs.target }}
         run: |
           if ($env:PUBLICATION_TARGET -eq 'staging') {
             $config = Get-Content -Raw ./bundle/config/pipeline.json | ConvertFrom-Json
