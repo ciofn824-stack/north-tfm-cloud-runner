@@ -1,0 +1,88 @@
+name: North TFM protected cloud update
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified candidate
+        type: boolean
+        default: false
+  schedule:
+    - cron: '2-57/5 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: north-tfm-cloud-publication
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || vars.AUTO_PUBLISH == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download pinned private toolchain
+        shell: pwsh
+        env:
+          TOOLS_READ_SECRET: ${{ secrets.TOOLS_READ_SECRET }}
+        run: ./Get-Toolchain.ps1
+      - name: Build without publishing or download credentials
+        shell: pwsh
+        run: ./Build-Private.ps1
+      - name: Encrypt the validated artifact
+        shell: pwsh
+        run: ./Protect-Candidate.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            out/candidate.enc
+            out/envelope.json
+          if-no-files-found: error
+          retention-days: 1
+
+  verify-and-publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Retrieve pinned verification code on a fresh machine
+        shell: pwsh
+        env:
+          TOOLS_READ_SECRET: ${{ secrets.TOOLS_READ_SECRET }}
+        run: ./Get-Toolchain.ps1
+      - uses: actions/download-artifact@v4
+        with:
+          name: encrypted-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: out
+      - name: Decrypt and verify artifact transfer
+        shell: pwsh
+        env:
+          CANDIDATE_PRIVATE_KEY: ${{ secrets.CANDIDATE_PRIVATE_KEY }}
+        run: |
+          ./Unprotect-Candidate.ps1
+          ./Verify-Transfer.ps1
+      - name: Publish only when explicitly enabled
+        if: inputs.publish == true || (github.event_name == 'schedule' && vars.AUTO_PUBLISH == 'true')
+        shell: pwsh
+        env:
+          NORTH_TFM_ADMIN_SECRET: ${{ secrets.NORTH_TFM_ADMIN_SECRET }}
+        run: |
+          try {
+            & ./bundle/scripts/Publish-NorthTFMValidated.ps1 *> ./bundle/publication-private.log
+          } catch {
+            # Never copy private reports, payloads or arbitrary tool output to public logs.
+            throw 'Publication was rejected. The current client was not replaced unless content verification succeeded.'
+          }
+          Write-Host 'Publication and content verification completed.'
