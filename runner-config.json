@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
-  "toolsSha256": "c6818a87ee63211fe359d2bd5df0491049d6b5801537b73260434c39f5bd7a38",
-  "toolsUrl": "https://north-tfm-build-storage.ciofn824-30b.workers.dev/tools/download"
+  "toolsUrl": "https://north-tfm-build-storage.ciofn824-30b.workers.dev/tools/download",
+  "toolsSha256": "9ca0e46d861b71081e934f14046befa1fbdeb4cc003f6888501799537de8d69a",
+  "schemaVersion": 1
 }
