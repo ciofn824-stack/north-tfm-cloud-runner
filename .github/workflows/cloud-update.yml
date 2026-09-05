@@ -29,6 +29,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || vars.AUTO_PUBLISH == 'true'
     runs-on: windows-latest
     timeout-minutes: 12
+    outputs:
+      artifact-id: ${{ steps.candidate-upload.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,7 +49,8 @@ jobs:
       - name: Encrypt the validated artifact
         shell: pwsh
         run: ./Protect-Candidate.ps1
-      - uses: actions/upload-artifact@v4
+      - id: candidate-upload
+        uses: actions/upload-artifact@v4
         with:
           name: encrypted-candidate-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -60,6 +63,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 6
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -100,3 +106,10 @@ jobs:
             throw 'Publication was rejected. The current client was not replaced unless content verification succeeded.'
           }
           Write-Host 'Publication and content verification completed.'
+      - name: Remove the encrypted transfer artifact
+        if: always() && needs.build.outputs.artifact-id != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ needs.build.outputs.artifact-id }}
+        run: gh api --method DELETE "repos/${{ github.repository }}/actions/artifacts/$env:ARTIFACT_ID"
